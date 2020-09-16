@@ -62,7 +62,10 @@ tm_shape(final_graph %>% activate("edges") %>% st_as_sf()) +
     lwd = 2,
     col = "edge_betweenness",
     palette = "Spectral",
-    breaks = final_graph %>% activate("edges") %>% st_as_sf() %>% pull(edge_betweenness) %>% boxcut
+    breaks = final_graph %>% activate("edges") %>% st_as_sf() %>% pull(edge_betweenness) %>% boxcut,
+    legend.col.show = FALSE
   ) +
 tm_shape(moc_regplan) +
-  tm_borders(lwd = 4)
+  tm_borders(lwd = 4) +
+  tmap_style("natural") +
+  tmap_save("./plots/moc-betweenness.png")
