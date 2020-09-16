@@ -1,5 +1,6 @@
 library(tidyverse)
 library(sf)
+library(geobr)
 
 library(igraph)
 library(tidygraph)
@@ -34,7 +35,10 @@ moc_edges <- st_read("./data/moc_2010_network.gpkg", layer = "edges") %>%
     to = as.character(to)
   )
 
-moc_regplan <- st_read("/mnt/HDD/STORAGE/Bases vetoriais/REGIOES_DE_PLANEJAMENTO.gpkg")
+moc_weighting_area <- read_weighting_area(3143302, simplified = FALSE) %>%
+  filter(code_weighting_area != 3143302005022)
+
+osm_basemap <- read_osm(moc_regplan %>% st_bbox())
 
 # Create spatial graph
 moc_graph <- sfnetwork(
@@ -57,15 +61,20 @@ final_graph <- moc_graph %>%
     node_closeness = centrality_closeness(),
   )
 
-tm_shape(final_graph %>% activate("edges") %>% st_as_sf()) +
+tm_shape(osm_basemap) + tm_rgb() +
+tm_shape(final_graph %>% activate("edges") %>% st_as_sf() %>% arrange(edge_betweenness), bbox = moc_regplan %>% st_bbox) +
   tm_lines(
-    lwd = 2,
+    lwd = 3,
     col = "edge_betweenness",
-    palette = "Spectral",
+    palette = "cividis",
     breaks = final_graph %>% activate("edges") %>% st_as_sf() %>% pull(edge_betweenness) %>% boxcut,
     legend.col.show = FALSE
   ) +
-tm_shape(moc_regplan) +
-  tm_borders(lwd = 4) +
-  tmap_style("natural") +
-  tmap_save("./plots/moc-betweenness.png")
+tm_shape(moc_weighting_area) +
+  tm_borders(
+    lwd = 4,
+    col = "black"
+  )
+  
+
+tmap_save(filename = "./plots/moc-betweenness.png")
