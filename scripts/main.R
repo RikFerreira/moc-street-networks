@@ -59,10 +59,11 @@ final_graph <- moc_graph %>%
   activate("nodes") %>%
   mutate(
     node_closeness = centrality_closeness(),
+    node_constraint = node_constraint()
   )
 
 tm_shape(osm_basemap) + tm_rgb() +
-tm_shape(final_graph %>% activate("edges") %>% st_as_sf() %>% arrange(edge_betweenness), bbox = moc_regplan %>% st_bbox) +
+tm_shape(final_graph %>% activate("edges") %>% st_as_sf() %>% arrange(edge_betweenness), bbox = moc_weighting_area %>% st_bbox) +
   tm_lines(
     lwd = 3,
     col = "edge_betweenness",
@@ -75,6 +76,20 @@ tm_shape(moc_weighting_area) +
     lwd = 4,
     col = "black"
   )
-  
+
+tm_shape(final_graph %>% activate("nodes") %>% st_as_sf() %>% arrange(node_constraint), bbox = moc_weighting_area %>% st_bbox) +
+  tm_dots(
+    lwd = 3,
+    col = "node_constraint",
+    palette = "cividis",
+    #breaks = final_graph %>% activate("nodes") %>% st_as_sf() %>% pull(node_constraint) %>% boxcut,
+    legend.col.show = FALSE
+  ) +
+  tm_shape(moc_weighting_area) +
+  tm_borders(
+    lwd = 4,
+    col = "black"
+  )
+
 
 tmap_save(filename = "./plots/moc-betweenness.png")
