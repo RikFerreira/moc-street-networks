@@ -20,25 +20,28 @@ resize <- function(x) {
 
 
 # Execute python script
-use_condaenv("ox")
-source_python("./scripts/download-moc-network.py")
+# use_condaenv("ox")
+# source_python("./scripts/download-moc-network.py")
 
 # Read gpkg
 moc_nodes <- st_read("./data/moc_2010_network.gpkg", layer = "nodes") %>%
+  st_transform(31983) %>%
   select(osmid) %>%
   mutate(osmid = as.character(osmid))
 
 moc_edges <- st_read("./data/moc_2010_network.gpkg", layer = "edges") %>%
-  select(from, to, length) %>%
+  st_transform(31983) %>%
+  select(osmid, from, to, length) %>%
   mutate(
     from = as.character(from),
     to = as.character(to)
   )
 
 moc_weighting_area <- read_weighting_area(3143302, simplified = FALSE) %>%
+  st_transform(31983) %>%
   filter(code_weighting_area != 3143302005022)
 
-osm_basemap <- read_osm(moc_regplan %>% st_bbox())
+osm_basemap <- read_osm(read_municipality(3143302) %>% st_transform(31983) %>% st_bbox())
 
 # Create spatial graph
 moc_graph <- sfnetwork(
@@ -59,37 +62,46 @@ final_graph <- moc_graph %>%
   activate("nodes") %>%
   mutate(
     node_closeness = centrality_closeness(),
-    node_constraint = node_constraint()
+    node_constraint = node_constraint(),
+    node_betweenness = centrality_betweenness()
   )
 
-tm_shape(osm_basemap) + tm_rgb() +
+map <-
 tm_shape(final_graph %>% activate("edges") %>% st_as_sf() %>% arrange(edge_betweenness), bbox = moc_weighting_area %>% st_bbox) +
   tm_lines(
     lwd = 3,
     col = "edge_betweenness",
     palette = "cividis",
-    breaks = final_graph %>% activate("edges") %>% st_as_sf() %>% pull(edge_betweenness) %>% boxcut,
-    legend.col.show = FALSE
+    breaks = final_graph %>% activate("edges") %>% st_as_sf() %>% pull(edge_betweenness) %>% quantile,
+    legend.col.is.portrait = FALSE
   ) +
 tm_shape(moc_weighting_area) +
   tm_borders(
     lwd = 4,
     col = "black"
-  )
-
-tm_shape(final_graph %>% activate("nodes") %>% st_as_sf() %>% arrange(node_constraint), bbox = moc_weighting_area %>% st_bbox) +
-  tm_dots(
-    lwd = 3,
-    col = "node_constraint",
-    palette = "cividis",
-    #breaks = final_graph %>% activate("nodes") %>% st_as_sf() %>% pull(node_constraint) %>% boxcut,
-    legend.col.show = FALSE
   ) +
-  tm_shape(moc_weighting_area) +
-  tm_borders(
-    lwd = 4,
-    col = "black"
+  tm_scale_bar(position = c("right", "bottom")) +
+  tm_compass(position = c("right", "top")) +
+  tm_layout(
+    legend.outside = TRUE,
+    legend.outside.position = "bottom"
   )
 
+# tm_shape(osm_basemap) + tm_rgb() +
+# tm_shape(final_graph %>% activate("nodes") %>% st_as_sf() %>% arrange(node_constraint), bbox = moc_weighting_area %>% st_bbox) +
+#   tm_dots(
+#     size = .3,
+#     col = "node_constraint",
+#     palette = "cividis",
+#     breaks = final_graph %>% activate("nodes") %>% st_as_sf() %>% pull(node_constraint) %>% boxcut,
+#     #legend.col.show = FALSE
+#   ) +
+#   tm_shape(moc_weighting_area) +
+#   tm_borders(
+#     lwd = 4,
+#     col = "black"
+#   )
 
-tmap_save(filename = "./plots/moc-betweenness.png")
+
+tmap_save(map, filename = "./plots/moc-betweenness.png", asp = 0)
+
